@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Feestboek</title>
+<style>
+  /* Basis en font */
+  body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #f0f2f5;
+  }
+
+  /* Blauwe topbalk */
+  header {
+    background-color: #1877f2;
+    color: white;
+    padding: 0.8rem 1rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Container voor de content */
+  main {
+    max-width: 600px;
+    margin: 1rem auto;
+    background: white;
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    box-shadow: 0 2px 5px rgb(0 0 0 / 0.1);
+  }
+
+  /* Login en app secties */
+  #login, #app {
+    margin-top: 1rem;
+  }
+
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 0.6rem;
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    font-size: 1rem;
+    box-sizing: border-box;
+  }
+
+  button {
+    background-color: #1877f2;
+    border: none;
+    border-radius: 6px;
+    color: white;
+    font-weight: 600;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: background-color 0.25s ease;
+  }
+  button:hover {
+    background-color: #165ec9;
+  }
+
+  #logout {
+    background-color: #e53935;
+    font-weight: normal;
+  }
+  #logout:hover {
+    background-color: #b32d27;
+  }
+
+  /* Posts lijst */
+  #posts {
+    max-height: 300px;
+    overflow-y: auto;
+    border-top: 1px solid #ddd;
+  }
+  .post {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #eee;
+  }
+  .post strong {
+    color: #1877f2;
+  }
+
+  /* Foutmelding */
+  #loginError {
+    color: #e53935;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  Feestboek
+  <button id="logout" style="display:none;">Uitloggen</button>
+</header>
+
+<main>
+  <!-- Login scherm -->
+  <section id="login" style="display:none;">
+    <h2>Inloggen</h2>
+    <input type="text" id="username" placeholder="Gebruikersnaam" autocomplete="username" />
+    <button id="loginBtn">Inloggen</button>
+    <div id="loginError"></div>
+  </section>
+
+  <!-- App scherm -->
+  <section id="app" style="display:none;">
+    <p>Welkom, <strong><span id="displayUsername"></span></strong>!</p>
+
+    <h3>Wat denk je?</h3>
+    <textarea id="postContent" rows="3" placeholder="Typ hier je bericht..."></textarea>
+    <button id="postBtn">Plaats bericht</button>
+
+    <h3>Berichten</h3>
+    <div id="posts">Laden...</div>
+  </section>
+</main>
+
+<script>
+const apiBase = 'http://10.144.34.88:5000'; // Pas dit aan naar jouw backend
+
+const loginDiv = document.getElementById('login');
+const appDiv = document.getElementById('app');
+const usernameInput = document.getElementById('username');
+const loginBtn = document.getElementById('loginBtn');
+const loginError = document.getElementById('loginError');
+const postContent = document.getElementById('postContent');
+const postBtn = document.getElementById('postBtn');
+const postsDiv = document.getElementById('posts');
+const logoutBtn = document.getElementById('logout');
+const displayUsername = document.getElementById('displayUsername');
+
+let token = localStorage.getItem('token');
+let username = localStorage.getItem('username');
+
+function showLogin() {
+  loginDiv.style.display = 'block';
+  appDiv.style.display = 'none';
+  logoutBtn.style.display = 'none';
+  loginError.textContent = '';
+  usernameInput.value = '';
+}
+
+function showApp() {
+  loginDiv.style.display = 'none';
+  appDiv.style.display = 'block';
+  logoutBtn.style.display = 'inline-block';
+  displayUsername.textContent = username;
+  loadPosts();
+}
+
+async function login() {
+  const user = usernameInput.value.trim();
+  if (!user) {
+    loginError.textContent = 'Vul een gebruikersnaam in.';
+    return;
+  }
+  loginError.textContent = '';
+
+  try {
+    const resp = await fetch(apiBase + '/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user })
+    });
+    const data = await resp.json();
+
+    if (resp.ok) {
+      token = data.token;
+      username = data.username;
+      localStorage.setItem('token', token);
+      localStorage.setItem('username', username);
+      showApp();
+    } else {
+      loginError.textContent = data.error || 'Login mislukt.';
+    }
+  } catch (e) {
+    loginError.textContent = 'Kan server niet bereiken.';
+  }
+}
+
+async function loadPosts() {
+  try {
+    const resp = await fetch(apiBase + '/posts');
+    if (!resp.ok) throw new Error('Fout bij laden posts');
+    const data = await resp.json();
+    postsDiv.innerHTML = '';
+    if (data.length === 0) {
+      postsDiv.textContent = 'Geen berichten.';
+      return;
+    }
+    data.forEach(post => {
+      const div = document.createElement('div');
+      div.className = 'post';
+      div.innerHTML = `<strong>${post.username}</strong>: ${post.content}`;
+      postsDiv.appendChild(div);
+    });
+  } catch (e) {
+    postsDiv.textContent = 'Kan berichten niet laden.';
+  }
+}
+
+async function addPost() {
+  const content = postContent.value.trim();
+  if (!content) return;
+
+  try {
+    const resp = await fetch(apiBase + '/posts', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': token
+      },
+      body: JSON.stringify({ content })
+    });
+    const data = await resp.json();
+
+    if (resp.ok) {
+      postContent.value = '';
+      loadPosts();
+    } else if (resp.status === 401) {
+      alert('Je bent niet ingelogd. Log opnieuw in.');
+      logout();
+    } else {
+      alert(data.error || 'Fout bij plaatsen.');
+    }
+  } catch {
+    alert('Server niet bereikbaar.');
+  }
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  localStorage.removeItem('username');
+  token = null;
+  username = null;
+  showLogin();
+}
+
+loginBtn.addEventListener('click', login);
+postBtn.addEventListener('click', addPost);
+logoutBtn.addEventListener('click', logout);
+
+if (token && username) {
+  showApp();
+} else {
+  showLogin();
+}
+</script>
+
+</body>
+</html>
