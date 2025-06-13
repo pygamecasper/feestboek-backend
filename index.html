@@ -156,6 +156,12 @@ const displayUsername = document.getElementById('displayUsername');
 let token = localStorage.getItem('token');
 let username = localStorage.getItem('username');
 
+document.addEventListener("keydown", function(event) {
+    if (event.ctrlKey && event.key === "Enter") {
+        addPost();
+    }
+});
+
 function showLogin() {
   loginDiv.style.display = 'block';
   appDiv.style.display = 'none';
@@ -251,11 +257,7 @@ async function addPost() {
     alert('Server niet bereikbaar.');
   }
 }
-document.addEventListener("keydown", function(event) {
-    if (event.ctrlKey && event.key === "Enter") {
-        addPost();
-    }
-});
+
 function logout() {
   localStorage.removeItem('token');
   localStorage.removeItem('username');
