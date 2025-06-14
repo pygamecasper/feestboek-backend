@@ -6,14 +6,12 @@
 <link data-default-icon="https://static.xx.fbcdn.net/rsrc.php/y1/r/ay1hV6OlegS.ico" data-badged-icon="https://static.xx.fbcdn.net/rsrc.php/yD/r/UJj0tgk-RrT.ico" rel="shortcut icon" href="https://static.xx.fbcdn.net/rsrc.php/y1/r/ay1hV6OlegS.ico">
 <title>Feestboek</title>
 <style>
-  /* Basis en font */
   body {
     margin: 0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #f0f2f5;
   }
 
-  /* Blauwe topbalk */
   header {
     background-color: #1877f2;
     color: white;
@@ -25,7 +23,6 @@
     justify-content: space-between;
   }
 
-  /* Container voor de content */
   main {
     max-width: 600px;
     margin: 1rem auto;
@@ -35,24 +32,11 @@
     box-shadow: 0 2px 5px rgb(0 0 0 / 0.1);
   }
 
-  /* Login en app secties */
   #login, #app {
     margin-top: 1rem;
   }
-  textarea {
-    width: 100%;
-    height: 150px;
-    padding: 10px;
-    font-size: 16px;
-    border: 2px solid #3498db;
-    border-radius: 5px;
-    outline: none;
-    resize: none;
-    background-color: #f8f9fa;
-    color: #333;
-}
 
-  input[type="text"], textarea {
+  input[type="text"], input[type="password"], textarea {
     width: 100%;
     padding: 0.6rem;
     margin-top: 0.5rem;
@@ -61,6 +45,13 @@
     border: 1px solid #ddd;
     font-size: 1rem;
     box-sizing: border-box;
+  }
+
+  textarea {
+    height: 150px;
+    resize: none;
+    background-color: #f8f9fa;
+    color: #333;
   }
 
   button {
@@ -73,7 +64,9 @@
     cursor: pointer;
     font-size: 1rem;
     transition: background-color 0.25s ease;
+    margin-right: 0.5rem;
   }
+
   button:hover {
     background-color: #165ec9;
   }
@@ -82,31 +75,29 @@
     background-color: #e53935;
     font-weight: normal;
   }
+
   #logout:hover {
     background-color: #b32d27;
   }
 
-  /* Posts lijst */
   #posts {
     max-height: 300px;
     overflow-y: auto;
     border-top: 1px solid #ddd;
   }
+
   .post {
     padding: 0.75rem 0;
     border-bottom: 1px solid #eee;
   }
+
   .post strong {
     color: #1877f2;
   }
 
-  /* Foutmelding */
   #loginError {
     color: #e53935;
     font-weight: 600;
-  }
-  input[type=text] {
-    
   }
 </style>
 </head>
@@ -118,15 +109,15 @@
 </header>
 
 <main>
-  <!-- Login scherm -->
   <section id="login" style="display:none;">
-    <h2>Inloggen</h2>
+    <h2>Inloggen of Registreren</h2>
     <input type="text" id="username" placeholder="Gebruikersnaam" autocomplete="username" />
+    <input type="password" id="password" placeholder="Wachtwoord" autocomplete="current-password" />
     <button id="loginBtn">Inloggen</button>
+    <button id="signupBtn">Account aanmaken</button>
     <div id="loginError"></div>
   </section>
 
-  <!-- App scherm -->
   <section id="app" style="display:none;">
     <p>Welkom, <strong><span id="displayUsername"></span></strong>!</p>
 
@@ -140,12 +131,14 @@
 </main>
 
 <script>
-const apiBase = 'https://feestboek-backend.onrender.com'; // Pas dit aan naar jouw backend
+const apiBase = 'https://feestboek-backend.onrender.com';
 
 const loginDiv = document.getElementById('login');
 const appDiv = document.getElementById('app');
 const usernameInput = document.getElementById('username');
+const passwordInput = document.getElementById('password');
 const loginBtn = document.getElementById('loginBtn');
+const signupBtn = document.getElementById('signupBtn');
 const loginError = document.getElementById('loginError');
 const postContent = document.getElementById('postContent');
 const postBtn = document.getElementById('postBtn');
@@ -168,6 +161,7 @@ function showLogin() {
   logoutBtn.style.display = 'none';
   loginError.textContent = '';
   usernameInput.value = '';
+  passwordInput.value = '';
 }
 
 function showApp() {
@@ -180,17 +174,19 @@ function showApp() {
 
 async function login() {
   const user = usernameInput.value.trim();
-  if (!user) {
-    loginError.textContent = 'Vul een gebruikersnaam in.';
+  const pass = passwordInput.value.trim();
+  if (!user || !pass) {
+    loginError.textContent = 'Vul gebruikersnaam en wachtwoord in.';
     return;
   }
+
   loginError.textContent = '';
 
   try {
     const resp = await fetch(apiBase + '/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: user })
+      body: JSON.stringify({ username: user, password: pass })
     });
     const data = await resp.json();
 
@@ -202,6 +198,34 @@ async function login() {
       showApp();
     } else {
       loginError.textContent = data.error || 'Login mislukt.';
+    }
+  } catch (e) {
+    loginError.textContent = 'Kan server niet bereiken.';
+  }
+}
+
+async function signup() {
+  const user = usernameInput.value.trim();
+  const pass = passwordInput.value.trim();
+  if (!user || !pass) {
+    loginError.textContent = 'Vul gebruikersnaam en wachtwoord in.';
+    return;
+  }
+
+  loginError.textContent = '';
+
+  try {
+    const resp = await fetch(apiBase + '/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass })
+    });
+    const data = await resp.json();
+
+    if (resp.ok) {
+      loginError.textContent = 'Account aangemaakt. Je kunt nu inloggen.';
+    } else {
+      loginError.textContent = data.error || 'Registratie mislukt.';
     }
   } catch (e) {
     loginError.textContent = 'Kan server niet bereiken.';
@@ -267,6 +291,7 @@ function logout() {
 }
 
 loginBtn.addEventListener('click', login);
+signupBtn.addEventListener('click', signup);
 postBtn.addEventListener('click', addPost);
 logoutBtn.addEventListener('click', logout);
 
