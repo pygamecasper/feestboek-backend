@@ -2,6 +2,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import uuid
 import os
+import bcrypt
 
 sessions = {}   # sessie-token: username
 posts = []      # lijst van dicts met 'username' en 'content'
@@ -17,6 +18,12 @@ def load_users():
 def save_users(users):
     with open(USERS_FILE, 'w') as f:
         json.dump(users, f)
+
+def hash_password(password):
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+def verify_password(password, hashed_password):
+    return bcrypt.checkpw(password.encode(), hashed_password.encode())
 
 users = load_users()
 
@@ -57,7 +64,8 @@ class SimpleHandler(BaseHTTPRequestHandler):
                 self._set_headers(409)
                 self.wfile.write(json.dumps({'error': 'User already exists'}).encode())
             else:
-                users[username] = password
+                hashed_password = hash_password(password)
+                users[username] = hashed_password
                 save_users(users)
                 self._set_headers(201)
                 self.wfile.write(json.dumps({'message': 'User created'}).encode())
@@ -69,7 +77,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
             if not username or not password:
                 self._set_headers(400)
                 self.wfile.write(json.dumps({'error': 'Username and password required'}).encode())
-            elif username in users and users[username] == password:
+            elif username in users and verify_password(password, users[username]):
                 token = str(uuid.uuid4())
                 sessions[token] = username
                 self._set_headers(200)
