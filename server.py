@@ -1,9 +1,24 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import uuid
+import os
 
 sessions = {}   # sessie-token: username
 posts = []      # lijst van dicts met 'username' en 'content'
+USERS_FILE = 'users.json'
+
+# Helperfuncties
+def load_users():
+    if not os.path.exists(USERS_FILE):
+        return {}
+    with open(USERS_FILE, 'r') as f:
+        return json.load(f)
+
+def save_users(users):
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f)
+
+users = load_users()
 
 class SimpleHandler(BaseHTTPRequestHandler):
     def _set_headers(self, status=200):
@@ -31,18 +46,39 @@ class SimpleHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({'error': 'Invalid JSON'}).encode())
             return
 
-        if path == '/login':
+        # === SIGNUP ===
+        if path == '/signup':
             username = data.get('username')
-            if username:
-                # Maak een simpele sessie-token
+            password = data.get('password')
+            if not username or not password:
+                self._set_headers(400)
+                self.wfile.write(json.dumps({'error': 'Username and password required'}).encode())
+            elif username in users:
+                self._set_headers(409)
+                self.wfile.write(json.dumps({'error': 'User already exists'}).encode())
+            else:
+                users[username] = password
+                save_users(users)
+                self._set_headers(201)
+                self.wfile.write(json.dumps({'message': 'User created'}).encode())
+
+        # === LOGIN ===
+        elif path == '/login':
+            username = data.get('username')
+            password = data.get('password')
+            if not username or not password:
+                self._set_headers(400)
+                self.wfile.write(json.dumps({'error': 'Username and password required'}).encode())
+            elif username in users and users[username] == password:
                 token = str(uuid.uuid4())
                 sessions[token] = username
                 self._set_headers(200)
                 self.wfile.write(json.dumps({'message': 'Login successful', 'token': token, 'username': username}).encode())
             else:
-                self._set_headers(400)
-                self.wfile.write(json.dumps({'error': 'Username required'}).encode())
+                self._set_headers(401)
+                self.wfile.write(json.dumps({'error': 'Invalid credentials'}).encode())
 
+        # === POSTS ===
         elif path == '/posts':
             token = self.headers.get('Authorization')
             if not token or token not in sessions:
@@ -67,7 +103,6 @@ class SimpleHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/posts':
             self._set_headers()
-            # Stuur posts, nieuwste eerst
             self.wfile.write(json.dumps(posts[::-1]).encode())
         else:
             self._set_headers(404)
