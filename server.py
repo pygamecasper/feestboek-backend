@@ -2,7 +2,6 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import uuid
 import os
-import bcrypt
 
 sessions = {}   # sessie-token: username
 posts = []      # lijst van dicts met 'username' en 'content'
@@ -19,26 +18,18 @@ def save_users(users):
     with open(USERS_FILE, 'w') as f:
         json.dump(users, f)
 
-def hash_password(password):
-    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-def verify_password(password, hashed_password):
-    return bcrypt.checkpw(password.encode(), hashed_password.encode())
-
 users = load_users()
 
 class SimpleHandler(BaseHTTPRequestHandler):
     def _set_headers(self, status=200):
         self.send_response(status)
         self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', 'https://feestboek.onrender.com')  # Specifieke frontend toestaan
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.send_header('Access-Control-Allow-Origin', '*')  # CORS
         self.end_headers()
 
     def do_OPTIONS(self):
         self.send_response(200)
-        self.send_header('Access-Control-Allow-Origin', 'https://feestboek.onrender.com')  # Voorkomt blokkering
+        self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.end_headers()
@@ -66,8 +57,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
                 self._set_headers(409)
                 self.wfile.write(json.dumps({'error': 'User already exists'}).encode())
             else:
-                hashed_password = hash_password(password)
-                users[username] = hashed_password
+                users[username] = password
                 save_users(users)
                 self._set_headers(201)
                 self.wfile.write(json.dumps({'message': 'User created'}).encode())
@@ -79,7 +69,7 @@ class SimpleHandler(BaseHTTPRequestHandler):
             if not username or not password:
                 self._set_headers(400)
                 self.wfile.write(json.dumps({'error': 'Username and password required'}).encode())
-            elif username in users and verify_password(password, users[username]):
+            elif username in users and users[username] == password:
                 token = str(uuid.uuid4())
                 sessions[token] = username
                 self._set_headers(200)
